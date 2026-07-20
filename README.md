@@ -29,6 +29,19 @@ A SillyTavern extension that lets you copy prompts from your current Chat Comple
 
 If a prompt can't be auto-added (ST's UI structure varies a bit between versions), its content is copied to your clipboard instead so you can paste it in manually — you'll see a status message either way.
 
+## Preset Merger (the reliable option)
+
+`tool/preset-merger.html` does the same job by editing preset files directly instead of automating SillyTavern's interface. Open it in any browser — it runs locally, nothing is uploaded anywhere.
+
+1. Export both presets from SillyTavern (Chat Completion preset dropdown → export)
+2. Load the source preset, then the target preset
+3. Tick the prompts you want, click **Merge and download**
+4. Import the downloaded file back into SillyTavern
+
+Because it writes both `prompts[]` and `prompt_order[]`, copied prompts actually appear in the list rather than sitting invisible in the file. It also gives a copy a fresh identifier if the target already uses that one, so nothing gets overwritten.
+
+This is the recommended path. The extension below is more convenient when it works, but depends on SillyTavern's interface staying put.
+
 ## Known limitations
 
 - Depends on SillyTavern's Prompt Manager DOM structure. If ST updates its UI significantly, some selectors in `index.js` (search for the `SEL` object near the top) may need small tweaks.
