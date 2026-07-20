@@ -2,7 +2,7 @@ import { extension_settings, getContext } from "../../../extensions.js";
 import { eventSource, event_types, saveSettingsDebounced } from "../../../../script.js";
 
 const MODULE = "prompt_copier";
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 const defaultSettings = { lastTarget: "" };
 
 // Selectors used to read the Chat Completion Prompt Manager UI.
@@ -43,8 +43,8 @@ function toast(type, msg) {
     console.log(`[Prompt Copier] ${type}: ${msg}`);
 }
 
-function qAll(sel) {
-    return Array.from(document.querySelectorAll(sel));
+function qAll(sel, root) {
+    return Array.from((root || document).querySelectorAll(sel));
 }
 function q(sel) {
     return document.querySelector(sel);
@@ -64,17 +64,6 @@ async function waitFor(selector, timeoutMs = 3000, stepMs = 100) {
         await sleep(stepMs);
     }
     return q(selector) || null;
-}
-
-// Poll for an element to appear instead of guessing a fixed delay.
-async function waitFor(sel, timeoutMs = 4000, intervalMs = 150) {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        const el = q(sel);
-        if (el) return el;
-        await sleep(intervalMs);
-    }
-    return null;
 }
 
 // --- Read prompts from the currently-active preset's Prompt Manager list ---
