@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Preset Merger — SillyTavern Chat Completion presets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0e1016;
+  --panel:#161a24;
+  --panel-2:#1d222e;
+  --line:#2b3242;
+  --text:#dfe4ef;
+  --dim:#8892a6;
+  --amber:#f2a541;
+  --rose:#e2687a;
+  --mint:#5fd39a;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--text);
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:14px;
+  line-height:1.55;
+  padding:32px 20px 80px;
+}
+.wrap{max-width:940px;margin:0 auto}
+h1{
+  font-family:"Space Grotesk",system-ui,sans-serif;
+  font-weight:700;
+  font-size:clamp(26px,4vw,40px);
+  letter-spacing:-0.02em;
+  margin:0 0 6px;
+}
+.sub{color:var(--dim);margin:0 0 28px;max-width:62ch}
+
+/* signature: the two-slot diagram */
+.diagram{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:10px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--panel);
+  padding:16px;
+  margin-bottom:28px;
+}
+.slot{
+  border:1px dashed var(--line);
+  border-radius:8px;
+  padding:10px 12px;
+}
+.slot b{color:var(--amber);font-weight:700;display:block;font-size:13px}
+.slot span{color:var(--dim);font-size:12px}
+.joint{color:var(--rose);font-size:20px;text-align:center}
+@media(max-width:640px){
+  .diagram{grid-template-columns:1fr}
+  .joint{transform:rotate(90deg)}
+}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:16px;
+}
+.card h2{
+  font-family:"Space Grotesk",sans-serif;
+  font-size:15px;
+  margin:0 0 4px;
+  letter-spacing:.01em;
+}
+.card p{margin:0 0 12px;color:var(--dim);font-size:12px}
+
+input[type=file]{
+  width:100%;
+  font-family:inherit;
+  font-size:12px;
+  color:var(--dim);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:9px;
+}
+input[type=file]::file-selector-button{
+  font-family:inherit;
+  font-size:12px;
+  background:var(--panel);
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:5px 10px;
+  margin-right:10px;
+  cursor:pointer;
+}
+.status{font-size:12px;margin-top:8px;min-height:1.2em}
+.ok{color:var(--mint)}
+.err{color:var(--rose)}
+
+.section{margin-top:28px}
+.section-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+}
+.section-head h2{
+  font-family:"Space Grotesk",sans-serif;
+  font-size:18px;
+  margin:0;
+}
+.mini{font-size:12px;color:var(--dim)}
+.mini a{color:var(--amber);text-decoration:none;cursor:pointer}
+.mini a:hover{text-decoration:underline}
+
+.list{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--panel);
+  max-height:340px;
+  overflow-y:auto;
+}
+.row{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:9px 14px;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--panel-2)}
+.row input{margin-top:4px;accent-color:var(--amber);flex:0 0 auto}
+.row .meta{min-width:0;flex:1}
+.row .nm{font-weight:500;word-break:break-word}
+.row .tag{
+  display:inline-block;
+  font-size:10px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:1px 6px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  color:var(--dim);
+  margin-left:6px;
+  vertical-align:1px;
+}
+.tag.marker{color:var(--rose);border-color:var(--rose)}
+.tag.dupe{color:var(--amber);border-color:var(--amber)}
+.row .prev{color:var(--dim);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.empty{padding:18px 14px;color:var(--dim);font-size:12px}
+
+.controls{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+label.opt{display:flex;gap:7px;align-items:center;font-size:12px;color:var(--dim);cursor:pointer}
+label.opt input{accent-color:var(--amber)}
+
+button.go{
+  font-family:"Space Grotesk",sans-serif;
+  font-weight:600;
+  font-size:15px;
+  background:var(--amber);
+  color:#20160a;
+  border:0;
+  border-radius:8px;
+  padding:11px 20px;
+  cursor:pointer;
+}
+button.go:disabled{opacity:.4;cursor:not-allowed}
+button.go:focus-visible,.row:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+
+.log{
+  margin-top:16px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--panel);
+  padding:14px;
+  font-size:12px;
+  display:none;
+}
+.log h3{margin:0 0 8px;font-family:"Space Grotesk",sans-serif;font-size:13px}
+.log ul{margin:0;padding-left:18px;color:var(--dim)}
+.log li{margin-bottom:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Preset Merger</h1>
+<p class="sub">Copy prompts between SillyTavern Chat Completion presets by editing the files directly. No extension, no clicking through menus, nothing to break when SillyTavern updates its interface.</p>
+
+<div class="diagram">
+  <div class="slot"><b>prompts[ ]</b><span>the prompt itself — name, role, content</span></div>
+  <div class="joint">&harr;</div>
+  <div class="slot"><b>prompt_order[ ]</b><span>where it sits in the list, and whether it's on</span></div>
+</div>
+<p class="sub" style="margin-top:-18px">A prompt has to land in both places to show up in SillyTavern. Miss the second one and it exists in the file but never appears. This tool writes both.</p>
+
+<div class="grid">
+  <div class="card">
+    <h2>Source preset</h2>
+    <p>The preset you're copying prompts out of.</p>
+    <input type="file" id="srcFile" accept=".json,application/json" />
+    <div class="status" id="srcStatus"></div>
+  </div>
+  <div class="card">
+    <h2>Target preset</h2>
+    <p>The preset receiving them. Your original file isn't touched.</p>
+    <input type="file" id="tgtFile" accept=".json,application/json" />
+    <div class="status" id="tgtStatus"></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <h2>Prompts to copy</h2>
+    <div class="mini"><a id="selAll">Select all</a> · <a id="selNone">Select none</a></div>
+  </div>
+  <div class="list" id="list"><div class="empty">Load a source preset to see its prompts.</div></div>
+
+  <div class="controls">
+    <label class="opt"><input type="checkbox" id="optEnabled" checked /> Turn copied prompts on in the target</label>
+    <label class="opt"><input type="checkbox" id="optMarkers" /> Include markers (Chat History, World Info, etc.)</label>
+  </div>
+
+  <div class="controls" style="margin-top:16px">
+    <button class="go" id="mergeBtn" disabled>Merge and download</button>
+    <span class="mini" id="mergeHint">Load both files to continue.</span>
+  </div>
+
+  <div class="log" id="log"><h3>What changed</h3><ul id="logList"></ul></div>
+</div>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let src = null, tgt = null;
+
+// Markers are structural placeholders SillyTavern owns (chat history, world info,
+// char description). They exist in every preset already, so copying them is
+// almost never what you want — hidden behind a checkbox.
+const isMarker = (p) => p.marker === true;
+
+function readJSON(file, cb) {
+  const r = new FileReader();
+  r.onload = () => {
+    try { cb(null, JSON.parse(r.result)); }
+    catch (e) { cb(e); }
+  };
+  r.onerror = () => cb(new Error("Couldn't read the file."));
+  r.readAsText(file);
+}
+
+function validate(data) {
+  if (!data || typeof data !== "object") return "That isn't a JSON object.";
+  if (!Array.isArray(data.prompts)) return "No prompts[] array — this may not be a Chat Completion preset.";
+  if (!Array.isArray(data.prompt_order)) return "No prompt_order[] array — this may not be a Chat Completion preset.";
+  return null;
+}
+
+function hookFile(inputId, statusId, assign) {
+  $(inputId).addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    const st = $(statusId);
+    if (!f) return;
+    readJSON(f, (err, data) => {
+      if (err) { st.className = "status err"; st.textContent = "Not valid JSON: " + err.message; assign(null); render(); return; }
+      const problem = validate(data);
+      if (problem) { st.className = "status err"; st.textContent = problem; assign(null); render(); return; }
+      st.className = "status ok";
+      st.textContent = `${data.prompts.length} prompts · ${data.prompt_order.length} order block(s)`;
+      assign({ data, name: f.name });
+      render();
+    });
+  });
+}
+hookFile("srcFile", "srcStatus", (v) => src = v);
+hookFile("tgtFile", "tgtStatus", (v) => tgt = v);
+
+function targetIdentifiers() {
+  if (!tgt) return new Set();
+  return new Set(tgt.data.prompts.map((p) => p.identifier));
+}
+
+function visiblePrompts() {
+  if (!src) return [];
+  const showMarkers = $("optMarkers").checked;
+  return src.data.prompts
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => showMarkers || !isMarker(p));
+}
+
+function render() {
+  const list = $("list");
+  const items = visiblePrompts();
+  const existing = targetIdentifiers();
+
+  if (!src) {
+    list.innerHTML = '<div class="empty">Load a source preset to see its prompts.</div>';
+  } else if (items.length === 0) {
+    list.innerHTML = '<div class="empty">No copyable prompts here. Tick "Include markers" if you meant to copy those.</div>';
+  } else {
+    list.innerHTML = "";
+    items.forEach(({ p, i }) => {
+      const row = document.createElement("label");
+      row.className = "row";
+      const dupe = existing.has(p.identifier);
+      const preview = (p.content || "").replace(/\s+/g, " ").trim().slice(0, 90);
+      row.innerHTML =
+        '<input type="checkbox" data-i="' + i + '" />' +
+        '<div class="meta"><div class="nm"></div>' +
+        (preview ? '<div class="prev"></div>' : "") +
+        "</div>";
+      const nm = row.querySelector(".nm");
+      nm.textContent = p.name || "(unnamed)";
+      if (isMarker(p)) {
+        const t = document.createElement("span");
+        t.className = "tag marker"; t.textContent = "marker"; nm.appendChild(t);
+      }
+      if (dupe) {
+        const t = document.createElement("span");
+        t.className = "tag dupe"; t.textContent = "already there"; nm.appendChild(t);
+      }
+      if (preview) row.querySelector(".prev").textContent = preview;
+      list.appendChild(row);
+    });
+  }
+
+  const ready = !!(src && tgt);
+  $("mergeBtn").disabled = !ready;
+  $("mergeHint").textContent = ready
+    ? "Downloads a new file. Your originals stay as they are."
+    : "Load both files to continue.";
+}
+
+$("selAll").addEventListener("click", () => document.querySelectorAll("#list input").forEach((c) => c.checked = true));
+$("selNone").addEventListener("click", () => document.querySelectorAll("#list input").forEach((c) => c.checked = false));
+$("optMarkers").addEventListener("change", render);
+
+// SillyTavern's own custom prompts use UUIDs as identifiers.
+function newIdentifier() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// Was this prompt switched on in the source preset?
+function sourceEnabled(identifier) {
+  for (const block of src.data.prompt_order) {
+    const hit = (block.order || []).find((o) => o.identifier === identifier);
+    if (hit) return hit.enabled !== false;
+  }
+  return true;
+}
+
+$("mergeBtn").addEventListener("click", () => {
+  const checked = Array.from(document.querySelectorAll("#list input")).filter((c) => c.checked);
+  const notes = [];
+  if (checked.length === 0) {
+    showLog(["Nothing selected — tick at least one prompt."]);
+    return;
+  }
+
+  const out = JSON.parse(JSON.stringify(tgt.data));
+  const existing = new Set(out.prompts.map((p) => p.identifier));
+  const forceOn = $("optEnabled").checked;
+
+  checked.forEach((c) => {
+    const original = src.data.prompts[Number(c.dataset.i)];
+    const copy = JSON.parse(JSON.stringify(original));
+    const wasEnabled = sourceEnabled(original.identifier);
+    let renamed = false;
+
+    // A duplicate identifier would overwrite or collide with the target's own
+    // prompt, so give the copy a fresh one instead.
+    if (existing.has(copy.identifier)) {
+      copy.identifier = newIdentifier();
+      renamed = true;
+    }
+    existing.add(copy.identifier);
+    out.prompts.push(copy);
+
+    // Slot 2: every prompt_order block gets an entry, or the prompt stays invisible.
+    out.prompt_order.forEach((block) => {
+      if (!Array.isArray(block.order)) block.order = [];
+      if (block.order.some((o) => o.identifier === copy.identifier)) return;
+      block.order.push({
+        identifier: copy.identifier,
+        enabled: forceOn ? true : wasEnabled,
+      });
+    });
+
+    notes.push(
+      '"' + (copy.name || "(unnamed)") + '" added to prompts[] and to ' +
+      out.prompt_order.length + " order block(s)" +
+      (renamed ? " — given a new identifier, the old one was taken" : "")
+    );
+  });
+
+  showLog(notes);
+
+  const base = (tgt.name || "preset.json").replace(/\.json$/i, "");
+  const blob = new Blob([JSON.stringify(out, null, 4)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = base + " (merged).json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+function showLog(lines) {
+  const log = $("log"), ul = $("logList");
+  ul.innerHTML = "";
+  lines.forEach((l) => { const li = document.createElement("li"); li.textContent = l; ul.appendChild(li); });
+  log.style.display = "block";
+}
+
+render();
+</script>
+</body>
+</html>
