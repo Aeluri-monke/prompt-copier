@@ -2,6 +2,7 @@ import { extension_settings, getContext } from "../../../extensions.js";
 import { eventSource, event_types, saveSettingsDebounced } from "../../../../script.js";
 
 const MODULE = "prompt_copier";
+const VERSION = "1.0.1";
 const defaultSettings = { lastTarget: "" };
 
 // Selectors used to read the Chat Completion Prompt Manager UI.
@@ -17,7 +18,7 @@ const SEL = {
     editContentArea: "#prompt-manager-popup-entry-form-prompt, #completion_prompt_manager_popup_entry_form_prompt",
     editSaveBtn: "#prompt-manager-popup-entry-form-save, .prompt-manager-popup-entry-form-save",
     editCloseBtn: "#prompt-manager-popup-close, .prompt-manager-popup-close",
-    addPromptBtn: "#prompt_manager_add, .prompt-manager-add, #completion_prompt_manager_new_prompt",
+    addPromptBtn: 'a.fa-plus-square[title="New prompt"], a[title="New prompt"], #prompt_manager_add, .prompt-manager-add',
 };
 
 function getSettings() {
@@ -53,6 +54,29 @@ function sleep(ms) {
     return new Promise((res) => setTimeout(res, ms));
 }
 
+// Poll for an element that may render late (e.g. after a preset switch
+// re-renders the prompt manager). Returns the element or null on timeout.
+async function waitFor(selector, timeoutMs = 3000, stepMs = 100) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const el = q(selector);
+        if (el && el.offsetParent !== null) return el;
+        await sleep(stepMs);
+    }
+    return q(selector) || null;
+}
+
+// Poll for an element to appear instead of guessing a fixed delay.
+async function waitFor(sel, timeoutMs = 4000, intervalMs = 150) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const el = q(sel);
+        if (el) return el;
+        await sleep(intervalMs);
+    }
+    return null;
+}
+
 // --- Read prompts from the currently-active preset's Prompt Manager list ---
 function readPromptList() {
     const list = q(SEL.promptList);
@@ -71,8 +95,7 @@ function readPromptList() {
 // Click a prompt row to open its edit popup, grab the content, close popup.
 async function readPromptContent(promptEl) {
     promptEl.click();
-    await sleep(200);
-    const popup = q(SEL.editPopup);
+    const popup = await waitFor(SEL.editPopup, 3000);
     if (!popup) {
         toast("warning", "Couldn't find the prompt edit popup — selectors may need updating.");
         return null;
@@ -91,15 +114,14 @@ async function readPromptContent(promptEl) {
 // Attempt to create a new prompt in whatever preset is currently active,
 // using ST's own "add prompt" popup form.
 async function injectPrompt(promptData) {
-    const addBtn = q(SEL.addPromptBtn);
+    const addBtn = await waitFor(SEL.addPromptBtn, 4000);
     if (!addBtn) {
         toast("error", "Couldn't find the 'Add Prompt' button — falling back to clipboard for this one.");
         await navigator.clipboard.writeText(promptData.content);
         return false;
     }
     addBtn.click();
-    await sleep(200);
-    const nameInput = q(SEL.editNameInput);
+    const nameInput = await waitFor(SEL.editNameInput, 3000);
     const contentArea = q(SEL.editContentArea);
     if (!nameInput || !contentArea) {
         toast("error", "Couldn't find the new-prompt form fields — copying content to clipboard instead.");
@@ -134,6 +156,25 @@ function switchToPreset(presetName) {
     dropdown.value = opt.value;
     dropdown.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
+}
+
+// Switching presets can also swap the linked Connection Profile, since ST's
+// Connection Manager binds profiles to presets. Snapshot before, restore after.
+// Selector is unverified across ST versions — fails silently if not found.
+const CONN_SEL = "#connection_profiles";
+
+function snapshotConnectionProfile() {
+    const el = q(CONN_SEL);
+    return el ? el.value : null;
+}
+
+async function restoreConnectionProfile(saved) {
+    if (saved === null) return;
+    const el = q(CONN_SEL);
+    if (!el || el.value === saved) return;
+    el.value = saved;
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(200);
 }
 
 function currentPresetName() {
@@ -254,6 +295,8 @@ function buildModal() {
             return;
         }
 
+        const savedProfile = snapshotConnectionProfile();
+
         status.textContent = `Switching to "${targetName}"...`;
         const switched = switchToPreset(targetName);
         if (!switched) {
@@ -261,7 +304,8 @@ function buildModal() {
             copyBtn.disabled = false;
             return;
         }
-        await sleep(400);
+        await waitFor(SEL.addPromptBtn, 5000);
+        await sleep(200);
 
         let injected = 0;
         for (const p of toCopy) {
@@ -269,6 +313,8 @@ function buildModal() {
             const ok = await injectPrompt(p);
             if (ok) injected++;
         }
+
+        await restoreConnectionProfile(savedProfile);
 
         status.textContent = `Done — ${injected}/${toCopy.length} added automatically.` +
             (injected < toCopy.length ? " Remaining ones were copied to your clipboard one at a time; paste manually." : "");
@@ -336,7 +382,7 @@ jQuery(() => {
     try {
         getSettings();
         addExtensionSettings();
-        console.log("[Prompt Copier] loaded.");
+        console.log(`[Prompt Copier] loaded. VERSION ${VERSION}`);
     } catch (e) {
         try {
             if (typeof toastr !== "undefined") {
